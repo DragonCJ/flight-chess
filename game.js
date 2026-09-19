@@ -644,6 +644,7 @@ function paint() {
 
   const soundBtn = document.getElementById("sound-btn");
   if (soundBtn) soundBtn.textContent = G.sound ? "音效开" : "音效关";
+  refreshNetBar();
   netSnap();
 }
 
@@ -1034,6 +1035,24 @@ const Net = {
   shownWin: null,
 };
 
+function deviceKind() {
+  const ua = navigator.userAgent || "";
+  if (/iPad/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) return "iPad";
+  if (/iPhone/.test(ua)) return "iPhone";
+  if (/Android/.test(ua)) return "手机";
+  return "电脑";
+}
+
+function playerName() {
+  const input = document.getElementById("player-name");
+  const typed = input && input.value.trim();
+  return (typed || deviceKind()).slice(0, 8);
+}
+
+function rememberName() {
+  try { localStorage.setItem("fc-name", playerName()); } catch (err) { /* ignore */ }
+}
+
 function localHuman(color) {
   if (Net.role === "host" || Net.role === "guest") return color === Net.seat;
   return G.control[color] === "human";
@@ -1047,16 +1066,35 @@ function sideName(color) {
   return found ? found.name : "等待加入";
 }
 
+function refreshNetBar() {
+  const bar = document.getElementById("net-bar");
+  if (!bar) return;
+  if (Net.role === "local") {
+    bar.hidden = true;
+    return;
+  }
+  bar.hidden = false;
+  const mine = Net.seat ? META[Net.seat].name : "分配中";
+  const link = Net.client && Net.client.connected ? "已连接" : "重连中";
+  bar.textContent = "联网 " + Net.room + " · 你是" + mine + " · " + link;
+}
+
 function setNetStatus(text) {
   const el = document.getElementById("net-status");
   if (el) el.textContent = text;
   const copy = document.getElementById("copy-room");
   const start = document.getElementById("start-btn");
+  const code = document.getElementById("room-code");
   if (copy) copy.hidden = Net.role !== "host";
+  if (code) {
+    code.hidden = Net.role !== "host" || !Net.room;
+    code.textContent = Net.room || "";
+  }
   if (start) {
     start.disabled = Net.role === "guest";
     start.textContent = Net.role === "guest" ? "等待房主开始" : "开始游戏";
   }
+  refreshNetBar();
 }
 
 function roomLink() {
@@ -1066,7 +1104,7 @@ function roomLink() {
 function netSend(msg) {
   if (!Net.client || !Net.client.connected) return;
   msg.from = Net.id;
-  Net.client.publish(Net.topic, JSON.stringify(msg));
+  Net.client.publish(Net.topic, JSON.stringify(msg), { qos: msg.t === "snap" ? 0 : 1 });
 }
 
 function netSnap() {
@@ -1123,17 +1161,21 @@ function onNetMessage(msg) {
   if (!msg || msg.from === Net.id) return;
   if (Net.role === "host") {
     if (msg.t === "join") {
-      if (Net.members.has(msg.from)) return;
-      const taken = new Set([...Net.members.values()].map((m) => m.color));
-      const open = activeOf(G.count).filter((c) => !taken.has(c));
-      if (!open.length) {
-        netSend({ t: "full", to: msg.from });
-        return;
+      let member = Net.members.get(msg.from);
+      if (!member) {
+        const taken = new Set([...Net.members.values()].map((m) => m.color));
+        const open = activeOf(G.count).filter((c) => !taken.has(c));
+        if (!open.length) {
+          netSend({ t: "full", to: msg.from });
+          return;
+        }
+        member = { name: msg.name || "好友", color: open[0] };
+        Net.members.set(msg.from, member);
+        G.control[member.color] = "human";
+      } else if (msg.name) {
+        member.name = msg.name;
       }
-      const color = open[0];
-      Net.members.set(msg.from, { name: msg.name || "好友", color });
-      G.control[color] = "human";
-      netSend({ t: "seat", to: msg.from, color });
+      netSend({ t: "seat", to: msg.from, color: member.color });
       setNetStatus("已加入 " + Net.members.size + "/" + G.count + "：" + [...Net.members.values()].map((m) => META[m.color].name + " " + m.name).join("，"));
       netSnap();
       return;
@@ -1165,34 +1207,73 @@ function connectNet(room, role) {
   Net.role = role;
   Net.room = room;
   Net.topic = "becky/flight/" + room;
-  Net.id = "p" + Math.random().toString(36).slice(2, 10);
+  try {
+    let id = localStorage.getItem("fc-id");
+    if (!id) {
+      id = "p" + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem("fc-id", id);
+    }
+    Net.id = id;
+  } catch (err) {
+    Net.id = "p" + Math.random().toString(36).slice(2, 10);
+  }
+  if (Net.timer) clearInterval(Net.timer);
   if (Net.client) {
     try { Net.client.end(true); } catch (err) { /* ignore */ }
   }
+  const brokers = [
+    "wss://broker.emqx.io:8084/mqtt",
+    "wss://broker.hivemq.com:8884/mqtt",
+  ];
   return new Promise((resolve, reject) => {
-    const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt", {
-      clientId: "fc" + Net.id,
-      clean: true,
-      reconnectPeriod: 2000,
-      connectTimeout: 8000,
-      protocolVersion: 4,
-    });
-    Net.client = client;
-    const timer = setTimeout(() => reject(new Error("连接超时")), 9000);
-    client.on("connect", () => {
-      client.subscribe(Net.topic, (err) => {
-        clearTimeout(timer);
-        if (err) reject(err);
-        else resolve();
+    let index = 0;
+    const attempt = () => {
+      const client = mqtt.connect(brokers[index], {
+        clientId: "fc" + Net.id + Math.random().toString(36).slice(2, 5),
+        clean: true,
+        reconnectPeriod: 2000,
+        connectTimeout: 7000,
+        protocolVersion: 4,
       });
-    });
-    client.on("error", (err) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-    client.on("message", (_topic, payload) => {
-      try { onNetMessage(JSON.parse(payload.toString())); } catch (err) { /* ignore */ }
-    });
+      Net.client = client;
+      let settled = false;
+      const timer = setTimeout(() => fail(new Error("连接超时")), 7000);
+      const fail = (err) => {
+        if (settled) return;
+        clearTimeout(timer);
+        try { client.end(true); } catch (e) { /* ignore */ }
+        index += 1;
+        if (index < brokers.length) attempt();
+        else reject(err);
+      };
+      client.on("connect", () => {
+        client.subscribe(Net.topic, (err) => {
+          if (err) return fail(err);
+          if (!settled) {
+            settled = true;
+            clearTimeout(timer);
+            Net.timer = setInterval(() => {
+              if (!Net.client || !Net.client.connected) {
+                refreshNetBar();
+                return;
+              }
+              if (Net.role === "host") netSnap();
+              if (Net.role === "guest" && !Net.seat) netSend({ t: "join", name: playerName() });
+            }, 1500);
+            resolve();
+          } else if (Net.role === "guest") {
+            netSend({ t: "join", name: playerName() });
+          } else if (Net.role === "host") {
+            netSnap();
+          }
+        });
+      });
+      client.on("error", (err) => fail(err || new Error("连不上")));
+      client.on("message", (_topic, payload) => {
+        try { onNetMessage(JSON.parse(payload.toString())); } catch (err) { /* ignore */ }
+      });
+    };
+    attempt();
   });
 }
 
@@ -1215,7 +1296,8 @@ async function hostRoom() {
   }
   Net.seat = "red";
   Net.members = new Map();
-  Net.members.set(Net.id, { name: "房主", color: "red" });
+  rememberName();
+  Net.members.set(Net.id, { name: playerName(), color: "red" });
   for (const color of activeOf(G.count)) G.control[color] = "human";
   document.getElementById("room-input").value = room;
   setNetStatus("房间 " + room + " 已创建。复制链接发到微信，等人齐了再开始。");
@@ -1235,7 +1317,8 @@ async function joinRoom(code) {
     setNetStatus("加入失败：" + (err && err.message ? err.message : "连不上"));
     return;
   }
-  netSend({ t: "join", name: "好友" });
+  rememberName();
+  netSend({ t: "join", name: playerName() });
   setNetStatus("已连接 " + room + "，等待分配颜色…");
 }
 
@@ -1316,6 +1399,13 @@ function boot() {
     }
   });
   bindWechatAudio();
+  const nameInput = document.getElementById("player-name");
+  try {
+    nameInput.value = localStorage.getItem("fc-name") || deviceKind();
+  } catch (err) {
+    nameInput.value = deviceKind();
+  }
+  nameInput.addEventListener("change", rememberName);
   const preset = new URLSearchParams(location.search).get("room");
   if (preset) {
     document.getElementById("room-input").value = preset.toUpperCase();

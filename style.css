@@ -510,6 +510,8 @@ button, summary { font-family: inherit; }
 
 .card {
   width: min(460px, 100%);
+  max-height: min(92dvh, 760px);
+  overflow: auto;
   background: #fff;
   border-radius: 22px;
   padding: 26px 26px 22px;
@@ -563,9 +565,24 @@ button, summary { font-family: inherit; }
 .net-title { margin: 0 0 6px; font-weight: 800; }
 .net-lead { margin: 0 0 8px; color: var(--muted); font-size: 13px; line-height: 1.45; }
 .net-status { margin: 8px 0 0; min-height: 1.2em; font-size: 13px; color: var(--ink); }
+.room-code {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+.net-bar {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.net-bar[hidden] { display: none; }
 
 .join-row { display: flex; gap: 8px; margin-top: 8px; }
-.join-row input {
+.join-row input,
+#player-name {
   flex: 1;
   min-width: 0;
   border: 0;
@@ -574,8 +591,16 @@ button, summary { font-family: inherit; }
   padding: 8px 14px;
   font: inherit;
   font-weight: 800;
+}
+.join-row input {
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+#player-name {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  box-sizing: border-box;
 }
 .win-card { text-align: center; }
 .win-card h2 { font-size: 36px; margin-bottom: 4px; }

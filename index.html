@@ -22,6 +22,7 @@
         </header>
 
         <p id="hint" class="hint" aria-live="polite">准备开始</p>
+        <p id="net-bar" class="net-bar" hidden></p>
         <p id="sixes" class="sixes"></p>
 
         <div class="dice-row">
@@ -74,7 +75,9 @@
       <div id="seats" class="seats"></div>
       <div class="net">
         <p class="net-title">联网对战</p>
-        <p class="net-lead">创建房间后，把链接发到微信。朋友点开就是加入，每人一台设备。正式的微信登录要你自己的开放平台账号，这边先用房间号认人。</p>
+        <p class="net-lead">房主创建房间，把链接发给另一台设备。对方打开就加入，各自走自己的颜色。</p>
+        <input id="player-name" maxlength="8" placeholder="你的名字" autocomplete="off" />
+        <p id="room-code" class="room-code" hidden></p>
         <div class="row-btns">
           <button id="host-room" class="ghost" type="button">创建房间</button>
           <button id="copy-room" class="ghost" type="button" hidden>复制邀请链接</button>
