@@ -57,6 +57,7 @@
         <button id="reset-btn" class="ghost" type="button">重开本局</button>
         <button id="setup-btn" class="ghost" type="button">设置</button>
       </div>
+      <p id="sound-note" class="sound-note"></p>
     </aside>
   </div>
 
@@ -71,6 +72,19 @@
         <button type="button" data-count="4">四人</button>
       </div>
       <div id="seats" class="seats"></div>
+      <div class="net">
+        <p class="net-title">联网对战</p>
+        <p class="net-lead">创建房间后，把链接发到微信。朋友点开就是加入，每人一台设备。正式的微信登录要你自己的开放平台账号，这边先用房间号认人。</p>
+        <div class="row-btns">
+          <button id="host-room" class="ghost" type="button">创建房间</button>
+          <button id="copy-room" class="ghost" type="button" hidden>复制邀请链接</button>
+        </div>
+        <div class="join-row">
+          <input id="room-input" maxlength="4" inputmode="text" placeholder="房间号" autocomplete="off" />
+          <button id="join-room" class="ghost" type="button">加入房间</button>
+        </div>
+        <p id="net-status" class="net-status"></p>
+      </div>
       <div class="row-btns center">
         <button id="close-setup" class="ghost" type="button" hidden>返回游戏</button>
         <button id="start-btn" class="primary" type="button">开始游戏</button>
@@ -90,6 +104,7 @@
     </div>
   </div>
 
+  <script src="mqtt.min.js"></script>
   <script src="game.js"></script>
 </body>
 </html>

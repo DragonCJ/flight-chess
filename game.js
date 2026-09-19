@@ -63,6 +63,7 @@ const G = {
 let playToken = 0;
 let audioCtx = null;
 let resumePhase = null;
+let speaker = null;
 
 function playerInk(color) {
   return { red: "#e23b3b", green: "#14924a", yellow: "#d4920a", blue: "#2f7cf6" }[color] || "#1c2430";
@@ -419,54 +420,42 @@ function wavUrl(freq, seconds, type) {
     const value = Math.max(-1, Math.min(1, sample * env * 0.92));
     view.setInt16(44 + i * 2, value * 32767, true);
   }
-  const url = URL.createObjectURL(new Blob([raw], { type: "audio/wav" }));
+  const pcm = new Uint8Array(raw);
+  let binary = "";
+  for (let i = 0; i < pcm.length; i++) binary += String.fromCharCode(pcm[i]);
+  const url = "data:audio/wav;base64," + btoa(binary);
   clipUrls.set(key, url);
   return url;
 }
 
-function playWav(freq, dur, type) {
-  const audio = new Audio(wavUrl(freq, dur, type));
-  audio.volume = 1;
-  const pending = audio.play();
-  if (pending && pending.catch) pending.catch(() => {});
-}
-
-function playBuffer(ctx, freq, dur, type) {
-  const rate = ctx.sampleRate;
-  const length = Math.max(dur, 0.16);
-  const n = Math.floor(rate * length);
-  const buffer = ctx.createBuffer(1, n, rate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < n; i++) {
-    const t = i / rate;
-    const env = Math.sin((Math.PI * i) / n);
-    let sample = Math.sin(2 * Math.PI * freq * t);
-    if (type === "square") sample = sample >= 0 ? 0.8 : -0.8;
-    data[i] = sample * env * 0.9;
+function playClip(freq, dur, type) {
+  try {
+    if (!speaker) {
+      speaker = document.createElement("audio");
+      speaker.setAttribute("playsinline", "");
+      speaker.setAttribute("webkit-playsinline", "");
+      speaker.preload = "auto";
+      document.body.appendChild(speaker);
+    }
+    speaker.volume = 1;
+    speaker.src = wavUrl(freq, Math.max(dur, 0.22), type);
+    const pending = speaker.play();
+    const note = document.getElementById("sound-note");
+    if (pending && pending.then) {
+      pending.then(() => {
+        if (note) note.textContent = "";
+      }).catch((err) => {
+        if (note) note.textContent = "声音没播出来（" + (err && err.name ? err.name : "被拦住") + "）。先关掉侧面静音键，再点一次音效。";
+      });
+    }
+  } catch (err) {
+    /* ignore missing audio */
   }
-  const src = ctx.createBufferSource();
-  src.buffer = buffer;
-  src.connect(ctx.destination);
-  src.start();
 }
 
 function tone(freq, dur, type) {
   if (!G.sound) return;
-  const length = Math.max(dur, 0.16);
-  const ctx = audioCtx;
-  if (ctx && ctx.state === "running") {
-    try {
-      playBuffer(ctx, freq, length, type);
-      return;
-    } catch (err) {
-      /* fall through to a file */
-    }
-  }
-  try {
-    playWav(freq, length, type);
-  } catch (err) {
-    /* ignore missing audio */
-  }
+  playClip(freq, dur, type);
 }
 
 function soundFor(kind) {
@@ -572,14 +561,14 @@ function paint() {
   } else if (G.phase === "over") {
     hint.textContent = META[G.winner].name + "获胜";
   } else {
-    const who = META[G.turn].name + (G.control[G.turn] === "human" ? "（你）" : "（电脑）");
-    if (G.phase === "roll") hint.textContent = G.control[G.turn] === "human" ? who + "，请掷骰子" : who + "思考中…";
+    const who = META[G.turn].name + "（" + sideName(G.turn) + "）";
+    if (G.phase === "roll") hint.textContent = localHuman(G.turn) ? who + "，请掷骰子" : who + (G.control[G.turn] === "ai" ? "思考中…" : "请操作");
     else if (G.phase === "pick") hint.textContent = who + "，点一架可以走的飞机";
     else hint.textContent = who + "正在飞行";
   }
   six.textContent = playing && G.sixes > 0 ? "已连续 " + G.sixes + " 个 6" : "";
 
-  const humanTurn = playing && G.phase === "roll" && G.control[G.turn] === "human";
+  const humanTurn = playing && G.phase === "roll" && localHuman(G.turn);
   dice.disabled = !humanTurn;
   dice.classList.toggle("ready", humanTurn);
   const pip = playing ? playerInk(G.turn) : "#1c2430";
@@ -598,7 +587,7 @@ function paint() {
     }).join("");
     const arrived = list.filter((p) => p.done).length;
     const on = G.turn === color ? " on" : "";
-    const who = G.control[color] === "human" ? "你" : "电脑";
+    const who = sideName(color);
     return '<div class="prow c-' + color + on + '"><span class="name">' + META[color].name +
       '</span><span class="who">' + who + '</span><span class="dots">' + dots +
       '</span><span class="frac">' + arrived + "/4</span></div>";
@@ -617,7 +606,7 @@ function paint() {
     }
   }
 
-  const legal = new Set(G.phase === "pick" ? G.moves.map((m) => m.id) : []);
+  const legal = new Set(G.phase === "pick" && localHuman(G.turn) ? G.moves.map((m) => m.id) : []);
   const groups = new Map();
   for (const plane of G.planes) {
     if (plane.done || plane.rel == null) continue;
@@ -655,6 +644,7 @@ function paint() {
 
   const soundBtn = document.getElementById("sound-btn");
   if (soundBtn) soundBtn.textContent = G.sound ? "音效开" : "音效关";
+  netSnap();
 }
 
 function edgeColor(color) {
@@ -808,6 +798,7 @@ function renderSetup() {
   }).join("");
   seats.querySelectorAll("button").forEach((btn) => {
     btn.addEventListener("click", () => {
+      if (Net.role !== "local") return;
       G.control[btn.dataset.color] = btn.dataset.ctrl;
       renderSetup();
     });
@@ -839,6 +830,11 @@ function closeSetup() {
 }
 
 function startGame() {
+  if (Net.role === "guest") return;
+  if (Net.role === "host" && Net.members.size < G.count) {
+    setNetStatus("还差 " + (G.count - Net.members.size) + " 人。先复制链接发到微信。");
+    return;
+  }
   playToken++;
   const token = playToken;
   resumePhase = null;
@@ -883,6 +879,7 @@ async function animateDice(value, token) {
 }
 
 function maybeAuto(token) {
+  if (Net.role === "guest") return;
   if (token !== playToken) return;
   if (G.phase === "roll" && G.control[G.turn] === "ai") {
     wait(520, token).then((ok) => {
@@ -958,6 +955,7 @@ async function commit(move, dice, token) {
 }
 
 async function onRoll() {
+  if (Net.role === "guest") return;
   if (G.phase !== "roll") return;
   const token = playToken;
   G.phase = "anim";
@@ -1013,9 +1011,253 @@ async function onRoll() {
 
 function onPlaneClick(id) {
   if (G.phase !== "pick") return;
+  if (!localHuman(G.turn)) return;
+  if (Net.role === "guest") {
+    netSend({ t: "intent", action: "pick", id });
+    return;
+  }
   const move = G.moves.find((m) => m.id === id);
   if (!move) return;
   commit(move, G.dice, playToken);
+}
+
+const Net = {
+  role: "local",
+  room: "",
+  id: "",
+  topic: "",
+  seat: null,
+  client: null,
+  members: new Map(),
+  applying: false,
+  planeKey: "",
+  shownWin: null,
+};
+
+function localHuman(color) {
+  if (Net.role === "host" || Net.role === "guest") return color === Net.seat;
+  return G.control[color] === "human";
+}
+
+function sideName(color) {
+  if (Net.role === "local") return G.control[color] === "human" ? "你" : "电脑";
+  if (color === Net.seat) return "你";
+  if (G.control[color] === "ai") return "电脑";
+  const found = [...Net.members.values()].find((m) => m.color === color);
+  return found ? found.name : "等待加入";
+}
+
+function setNetStatus(text) {
+  const el = document.getElementById("net-status");
+  if (el) el.textContent = text;
+  const copy = document.getElementById("copy-room");
+  const start = document.getElementById("start-btn");
+  if (copy) copy.hidden = Net.role !== "host";
+  if (start) {
+    start.disabled = Net.role === "guest";
+    start.textContent = Net.role === "guest" ? "等待房主开始" : "开始游戏";
+  }
+}
+
+function roomLink() {
+  return location.origin + location.pathname + "?room=" + Net.room;
+}
+
+function netSend(msg) {
+  if (!Net.client || !Net.client.connected) return;
+  msg.from = Net.id;
+  Net.client.publish(Net.topic, JSON.stringify(msg));
+}
+
+function netSnap() {
+  if (Net.role !== "host" || Net.applying) return;
+  netSend({
+    t: "snap",
+    phase: G.phase,
+    count: G.count,
+    control: G.control,
+    active: G.active,
+    turn: G.turn,
+    dice: G.dice,
+    sixes: G.sixes,
+    moves: G.moves,
+    log: G.log.slice(0, 14),
+    winner: G.winner,
+    planes: G.planes.map((p) => ({ id: p.id, color: p.color, slot: p.slot, rel: p.rel, done: !!p.done })),
+    members: [...Net.members.values()],
+  });
+}
+
+function applySnap(s) {
+  Net.applying = true;
+  G.phase = s.phase;
+  G.count = s.count;
+  G.control = Object.assign({}, s.control);
+  G.active = s.active.slice();
+  G.turn = s.turn;
+  G.dice = s.dice;
+  G.sixes = s.sixes || 0;
+  G.moves = s.moves || [];
+  G.log = s.log || [];
+  G.winner = s.winner || null;
+  G.planes = (s.planes || []).map((p) => ({ id: p.id, color: p.color, slot: p.slot, rel: p.rel, done: !!p.done, swoop: false }));
+  if (s.members) Net.members = new Map(s.members.map((m) => [m.color, m]));
+  const key = G.planes.map((p) => p.id).join(",");
+  if (key !== Net.planeKey) {
+    Net.planeKey = key;
+    mountPlanes();
+  }
+  if (G.phase !== "setup") {
+    document.getElementById("setup-modal").hidden = true;
+  }
+  if (G.dice) showDice(G.dice);
+  paint();
+  if (G.phase === "over" && G.winner && Net.shownWin !== G.winner) {
+    Net.shownWin = G.winner;
+    showWin(G.winner);
+  }
+  Net.applying = false;
+}
+
+function onNetMessage(msg) {
+  if (!msg || msg.from === Net.id) return;
+  if (Net.role === "host") {
+    if (msg.t === "join") {
+      if (Net.members.has(msg.from)) return;
+      const taken = new Set([...Net.members.values()].map((m) => m.color));
+      const open = activeOf(G.count).filter((c) => !taken.has(c));
+      if (!open.length) {
+        netSend({ t: "full", to: msg.from });
+        return;
+      }
+      const color = open[0];
+      Net.members.set(msg.from, { name: msg.name || "好友", color });
+      G.control[color] = "human";
+      netSend({ t: "seat", to: msg.from, color });
+      setNetStatus("已加入 " + Net.members.size + "/" + G.count + "：" + [...Net.members.values()].map((m) => META[m.color].name + " " + m.name).join("，"));
+      netSnap();
+      return;
+    }
+    if (msg.t === "intent") {
+      const member = Net.members.get(msg.from);
+      if (!member || member.color !== G.turn) return;
+      if (msg.action === "roll" && G.phase === "roll") onRoll();
+      if (msg.action === "pick" && G.phase === "pick") {
+        const move = G.moves.find((m) => m.id === msg.id);
+        if (move) commit(move, G.dice, playToken);
+      }
+    }
+    return;
+  }
+  if (msg.to && msg.to !== Net.id) return;
+  if (msg.t === "seat") {
+    Net.seat = msg.color;
+    setNetStatus("你是" + META[msg.color].name + "。等房主点开始。");
+  } else if (msg.t === "full") {
+    setNetStatus("这个房间已经满了。");
+  } else if (msg.t === "snap") {
+    applySnap(msg);
+  }
+}
+
+function connectNet(room, role) {
+  if (typeof mqtt === "undefined") return Promise.reject(new Error("联网组件没加载"));
+  Net.role = role;
+  Net.room = room;
+  Net.topic = "becky/flight/" + room;
+  Net.id = "p" + Math.random().toString(36).slice(2, 10);
+  if (Net.client) {
+    try { Net.client.end(true); } catch (err) { /* ignore */ }
+  }
+  return new Promise((resolve, reject) => {
+    const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt", {
+      clientId: "fc" + Net.id,
+      clean: true,
+      reconnectPeriod: 2000,
+      connectTimeout: 8000,
+      protocolVersion: 4,
+    });
+    Net.client = client;
+    const timer = setTimeout(() => reject(new Error("连接超时")), 9000);
+    client.on("connect", () => {
+      client.subscribe(Net.topic, (err) => {
+        clearTimeout(timer);
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    client.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+    client.on("message", (_topic, payload) => {
+      try { onNetMessage(JSON.parse(payload.toString())); } catch (err) { /* ignore */ }
+    });
+  });
+}
+
+function randomRoom() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 4; i++) code += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return code;
+}
+
+async function hostRoom() {
+  const room = randomRoom();
+  setNetStatus("正在创建房间…");
+  try {
+    await connectNet(room, "host");
+  } catch (err) {
+    Net.role = "local";
+    setNetStatus("创建失败：" + (err && err.message ? err.message : "连不上"));
+    return;
+  }
+  Net.seat = "red";
+  Net.members = new Map();
+  Net.members.set(Net.id, { name: "房主", color: "red" });
+  for (const color of activeOf(G.count)) G.control[color] = "human";
+  document.getElementById("room-input").value = room;
+  setNetStatus("房间 " + room + " 已创建。复制链接发到微信，等人齐了再开始。");
+}
+
+async function joinRoom(code) {
+  const room = String(code || "").trim().toUpperCase();
+  if (!/^[A-Z0-9]{4}$/.test(room)) {
+    setNetStatus("房间号是 4 位字母或数字。");
+    return;
+  }
+  setNetStatus("正在加入 " + room + " …");
+  try {
+    await connectNet(room, "guest");
+  } catch (err) {
+    Net.role = "local";
+    setNetStatus("加入失败：" + (err && err.message ? err.message : "连不上"));
+    return;
+  }
+  netSend({ t: "join", name: "好友" });
+  setNetStatus("已连接 " + room + "，等待分配颜色…");
+}
+
+function copyRoomLink() {
+  const url = roomLink();
+  const done = () => setNetStatus("链接已复制，发到微信即可：" + url);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(done).catch(() => {
+      window.prompt("复制这个链接发给朋友", url);
+    });
+    return;
+  }
+  window.prompt("复制这个链接发给朋友", url);
+}
+
+function bindWechatAudio() {
+  const fire = () => {
+    if (!window.WeixinJSBridge) return;
+    window.WeixinJSBridge.invoke("getNetworkType", {}, () => playClip(880, 0.2));
+  };
+  if (window.WeixinJSBridge) fire();
+  else document.addEventListener("WeixinJSBridgeReady", fire, false);
 }
 
 function boot() {
@@ -1035,22 +1277,31 @@ function boot() {
     if (event.target.id === "setup-modal") closeSetup();
   });
   document.getElementById("reset-btn").addEventListener("click", () => {
+    if (Net.role === "guest") return;
     if (G.phase === "setup" || G.phase === "paused") return;
     startGame();
   });
   document.getElementById("sound-btn").addEventListener("click", () => {
-    unlockAudio();
-    G.sound = !G.sound;
+    G.sound = true;
+    playClip(880, 0.28);
     paint();
-    if (G.sound) tone(880, 0.22);
+    const note = document.getElementById("sound-note");
+    if (note) note.textContent = "如果没听到，先关掉平板侧面的静音键，再点一次。";
   });
-  document.addEventListener("click", unlockAudio, true);
-  document.addEventListener("touchend", unlockAudio, true);
   document.getElementById("dice").addEventListener("click", () => {
-    if (G.phase === "roll" && G.control[G.turn] === "human") onRoll();
+    if (G.phase !== "roll" || !localHuman(G.turn)) return;
+    if (G.sound) playClip(740, 0.16);
+    if (Net.role === "guest") netSend({ t: "intent", action: "roll" });
+    else onRoll();
   });
+  document.getElementById("host-room").addEventListener("click", hostRoom);
+  document.getElementById("join-room").addEventListener("click", () => {
+    joinRoom(document.getElementById("room-input").value);
+  });
+  document.getElementById("copy-room").addEventListener("click", copyRoomLink);
   document.querySelectorAll("#counts button").forEach((btn) => {
     btn.addEventListener("click", () => {
+      if (Net.role !== "local") return;
       G.count = Number(btn.dataset.count);
       renderSetup();
     });
@@ -1058,11 +1309,18 @@ function boot() {
   window.addEventListener("keydown", (event) => {
     if (event.code !== "Space" || event.repeat) return;
     if (event.target && event.target.id === "dice") return;
-    if (G.phase === "roll" && G.control[G.turn] === "human") {
+    if (G.phase === "roll" && localHuman(G.turn)) {
       event.preventDefault();
-      onRoll();
+      if (Net.role === "guest") netSend({ t: "intent", action: "roll" });
+      else onRoll();
     }
   });
+  bindWechatAudio();
+  const preset = new URLSearchParams(location.search).get("room");
+  if (preset) {
+    document.getElementById("room-input").value = preset.toUpperCase();
+    joinRoom(preset);
+  }
 }
 
 if (typeof document !== "undefined") boot();

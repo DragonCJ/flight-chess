@@ -546,6 +546,37 @@ button, summary { font-family: inherit; }
 .seat em { color: var(--muted); font-style: normal; font-size: 13px; }
 .seat .pair { display: flex; gap: 6px; }
 
+.sound-note {
+  margin: 0;
+  min-height: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--red);
+}
+
+.net {
+  margin: 4px 0 14px;
+  padding-top: 12px;
+  border-top: 1px solid #efe8dc;
+}
+
+.net-title { margin: 0 0 6px; font-weight: 800; }
+.net-lead { margin: 0 0 8px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.net-status { margin: 8px 0 0; min-height: 1.2em; font-size: 13px; color: var(--ink); }
+
+.join-row { display: flex; gap: 8px; margin-top: 8px; }
+.join-row input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: #f3eee6;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
 .win-card { text-align: center; }
 .win-card h2 { font-size: 36px; margin-bottom: 4px; }
 
