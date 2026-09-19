@@ -62,6 +62,11 @@ const G = {
 
 let playToken = 0;
 let audioCtx = null;
+let resumePhase = null;
+
+function playerInk(color) {
+  return { red: "#e23b3b", green: "#14924a", yellow: "#d4920a", blue: "#2f7cf6" }[color] || "#1c2430";
+}
 
 function activeOf(count) {
   if (count === 2) return ["red", "yellow"];
@@ -354,21 +359,37 @@ function summarize(color, steps) {
   return bits.join("，");
 }
 
-function tone(freq, dur, type) {
-  if (!G.sound) return;
+function unlockAudio() {
   try {
     audioCtx = audioCtx || new AudioContext();
     if (audioCtx.state === "suspended") audioCtx.resume();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = type || "sine";
-    osc.frequency.value = freq;
-    gain.gain.value = 0.045;
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start();
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
-    osc.stop(audioCtx.currentTime + dur);
+  } catch (err) {
+    /* ignore missing audio */
+  }
+}
+
+function tone(freq, dur, type) {
+  if (!G.sound) return;
+  try {
+    unlockAudio();
+    const ctx = audioCtx;
+    if (!ctx) return;
+    const play = () => {
+      const t0 = ctx.currentTime;
+      const length = Math.max(dur, 0.14);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type || "sine";
+      osc.frequency.setValueAtTime(freq, t0);
+      gain.gain.setValueAtTime(0.25, t0);
+      gain.gain.linearRampToValueAtTime(0.0001, t0 + length);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + length + 0.02);
+    };
+    if (ctx.state === "suspended") ctx.resume().then(play).catch(() => {});
+    else play();
   } catch (err) {
     /* ignore missing audio */
   }
@@ -487,7 +508,8 @@ function paint() {
   const humanTurn = playing && G.phase === "roll" && G.control[G.turn] === "human";
   dice.disabled = !humanTurn;
   dice.classList.toggle("ready", humanTurn);
-  dice.style.setProperty("--edge", playing ? edgeColor(G.turn) : "#e4d3a8");
+  const pip = playing ? playerInk(G.turn) : "#1c2430";
+  document.querySelector(".dice-row").style.setProperty("--pip", pip);
 
   document.querySelectorAll(".airport").forEach((el) => {
     const color = el.dataset.color;
@@ -715,18 +737,33 @@ function renderSetup() {
 }
 
 function openSetup() {
-  playToken++;
-  G.phase = "setup";
-  G.winner = null;
+  const inGame = G.phase === "roll" || G.phase === "pick" || G.phase === "anim" || G.phase === "over";
+  if (inGame) {
+    resumePhase = G.phase === "anim" ? "roll" : G.phase;
+    playToken++;
+  }
   document.getElementById("win-modal").hidden = true;
   document.getElementById("setup-modal").hidden = false;
+  document.getElementById("close-setup").hidden = !inGame && !resumePhase;
   renderSetup();
   paint();
+}
+
+function closeSetup() {
+  if (!resumePhase) return;
+  document.getElementById("setup-modal").hidden = true;
+  const phase = resumePhase;
+  resumePhase = null;
+  const token = ++playToken;
+  G.phase = phase;
+  paint();
+  if (G.phase === "roll") maybeAuto(token);
 }
 
 function startGame() {
   playToken++;
   const token = playToken;
+  resumePhase = null;
   G.active = activeOf(G.count);
   G.turn = turnOrder()[0];
   G.phase = "roll";
@@ -915,14 +952,21 @@ function boot() {
   document.getElementById("again-btn").addEventListener("click", startGame);
   document.getElementById("back-btn").addEventListener("click", openSetup);
   document.getElementById("setup-btn").addEventListener("click", openSetup);
+  document.getElementById("close-setup").addEventListener("click", closeSetup);
+  document.getElementById("setup-modal").addEventListener("click", (event) => {
+    if (event.target.id === "setup-modal") closeSetup();
+  });
   document.getElementById("reset-btn").addEventListener("click", () => {
-    if (G.phase === "setup") return;
+    if (G.phase === "setup" || G.phase === "paused") return;
     startGame();
   });
   document.getElementById("sound-btn").addEventListener("click", () => {
     G.sound = !G.sound;
+    unlockAudio();
     paint();
+    if (G.sound) tone(660, 0.16);
   });
+  document.addEventListener("pointerdown", unlockAudio, { passive: true });
   document.getElementById("dice").addEventListener("click", () => {
     if (G.phase === "roll" && G.control[G.turn] === "human") onRoll();
   });

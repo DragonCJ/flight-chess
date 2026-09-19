@@ -326,10 +326,10 @@ button, summary { font-family: inherit; }
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
   gap: 6px;
-  border: 3px solid #1c2430;
+  border: 3px solid var(--pip, #1c2430);
   border-radius: 20px;
   background: #fffdf8;
-  box-shadow: 0 6px 0 #1c2430;
+  box-shadow: 0 6px 0 var(--pip, #1c2430);
   cursor: pointer;
 }
 
@@ -346,7 +346,7 @@ button, summary { font-family: inherit; }
   background: transparent;
 }
 
-.dice i.on { background: #111; }
+.dice i.on { background: var(--pip, #111); }
 
 .dice-num {
   margin: 0;
@@ -356,7 +356,7 @@ button, summary { font-family: inherit; }
   line-height: 1;
   letter-spacing: -0.04em;
   text-align: center;
-  color: #1c2430;
+  color: var(--pip, #1c2430);
   font-variant-numeric: tabular-nums;
 }
 
