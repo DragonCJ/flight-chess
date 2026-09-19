@@ -15,39 +15,44 @@
     </div>
 
     <aside class="panel">
-      <header class="brand">
-        <p class="eyebrow">经典棋盘</p>
-        <h1>飞行棋</h1>
-      </header>
+      <div class="panel-top">
+        <header class="brand">
+          <p class="eyebrow">经典棋盘</p>
+          <h1>飞行棋</h1>
+        </header>
 
-      <p id="hint" class="hint" aria-live="polite">准备开始</p>
-      <p id="sixes" class="sixes"></p>
+        <p id="hint" class="hint" aria-live="polite">准备开始</p>
+        <p id="sixes" class="sixes"></p>
 
-      <div class="dice-row">
-        <button id="dice" class="dice" type="button" disabled aria-label="掷骰子">
-          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-        </button>
-        <p id="dice-num" class="dice-num" aria-hidden="true">1</p>
+        <div class="dice-row">
+          <button id="dice" class="dice" type="button" disabled aria-label="掷骰子">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </button>
+          <p id="dice-num" class="dice-num" aria-hidden="true">1</p>
+        </div>
+        <p class="dice-tip">空格键也可以掷骰</p>
+
+        <div id="players" class="players"></div>
       </div>
-      <p class="dice-tip">空格键也可以掷骰</p>
 
-      <div id="players" class="players"></div>
-      <ol id="log" class="log"></ol>
+      <div class="panel-scroll">
+        <ol id="log" class="log"></ol>
 
-      <details class="rules">
-        <summary>规则</summary>
-        <ol>
-          <li>掷出 6 点才能从机场起飞，并且可以再掷一次。</li>
-          <li>走子后停在自己颜色的格子上，向前跳 4 格。起飞落到起飞点不算跳跃。</li>
-          <li>掷骰正好停在自己的航线格（虚线起点），沿虚线飞到前方，再跳 4 格。如果是跳到航线格，只飞、不再跳。</li>
-          <li>落点上的敌机，以及航线飞过的敌机，都会被击落回机场。四个起飞点是安全区。</li>
-          <li>绕场一圈后进入自己颜色的终点道。必须刚好到达，多出的步数会反弹。</li>
-          <li>连续掷出三个 6，场上最靠前的飞机立刻返航，本回合结束。</li>
-          <li>谁先把 4 架飞机全部送到终点，谁就获胜。到达后飞机会翻扣在机场里。</li>
-        </ol>
-      </details>
+        <details class="rules">
+          <summary>规则</summary>
+          <ol>
+            <li>掷出 6 点才能从机场起飞，并且可以再掷一次。</li>
+            <li>走子后停在自己颜色的格子上，向前跳 4 格。起飞落到起飞点不算跳跃。</li>
+            <li>掷骰正好停在自己的航线格（虚线起点），沿虚线飞到前方，再跳 4 格。如果是跳到航线格，只飞、不再跳。</li>
+            <li>落点上的敌机，以及航线飞过的敌机，都会被击落回机场。四个起飞点是安全区。</li>
+            <li>绕场一圈后进入自己颜色的终点道。必须刚好到达，多出的步数会反弹。</li>
+            <li>连续掷出三个 6，场上最靠前的飞机立刻返航，本回合结束。</li>
+            <li>谁先把 4 架飞机全部送到终点，谁就获胜。到达后飞机会翻扣在机场里。</li>
+          </ol>
+        </details>
+      </div>
 
-      <div class="row-btns">
+      <div class="row-btns panel-actions">
         <button id="sound-btn" class="ghost" type="button">音效开</button>
         <button id="reset-btn" class="ghost" type="button">重开本局</button>
         <button id="setup-btn" class="ghost" type="button">设置</button>

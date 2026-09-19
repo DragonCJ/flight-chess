@@ -29,11 +29,16 @@ button, summary { font-family: inherit; }
 
 .app {
   min-height: 100vh;
+  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
   display: flex;
   gap: 28px;
   align-items: center;
   justify-content: center;
   padding: 28px 24px;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .stage { flex: 0 1 auto; }
@@ -293,7 +298,20 @@ button, summary { font-family: inherit; }
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: min(92vh, 820px);
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel-top,
+.panel-actions { flex: 0 0 auto; }
+
+.panel-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 4px;
 }
 
 .brand { margin-bottom: 4px; }
@@ -381,14 +399,21 @@ button, summary { font-family: inherit; }
 
 @media (pointer: coarse) {
   .dice {
-    width: 156px;
-    height: 156px;
-    padding: 18px;
-    gap: 8px;
+    width: 108px;
+    height: 108px;
+    padding: 14px;
+    gap: 6px;
   }
 
   .dice i { width: 88%; height: 88%; }
-  .dice-num { font-size: 96px; }
+  .dice-num { font-size: 64px; }
+}
+
+@media (max-height: 820px) {
+  .dice { width: 84px; height: 84px; padding: 10px; gap: 4px; }
+  .dice-num { font-size: 48px; }
+  .brand h1, .card h2 { font-size: 26px; }
+  .panel { padding: 16px 16px 12px; }
 }
 
 .dice-tip {
@@ -433,18 +458,17 @@ button, summary { font-family: inherit; }
 
 .log {
   list-style: none;
-  margin: 8px 0 0;
+  margin: 0;
   padding: 0;
-  overflow: auto;
-  max-height: 168px;
   font-size: 13px;
   line-height: 1.45;
   color: #3c4a59;
+  overflow-wrap: anywhere;
 }
 
 .log li { padding: 3px 0; border-bottom: 1px solid #efe8dc; }
 
-.rules { font-size: 13px; color: #3c4a59; }
+.rules { margin-top: 8px; font-size: 13px; color: #3c4a59; overflow-wrap: anywhere; }
 .rules summary { cursor: pointer; font-weight: 700; color: var(--ink); }
 .rules ol { margin: 8px 0 0; padding-left: 18px; }
 .rules li { margin: 4px 0; }
@@ -533,11 +557,14 @@ button, summary { font-family: inherit; }
 
 @media (max-width: 960px) {
   .app {
+    height: auto;
+    max-height: none;
+    overflow: visible;
     flex-direction: column;
     align-items: center;
     padding: 16px;
   }
 
   .board { width: min(92vw, 560px); }
-  .panel { width: min(92vw, 560px); max-height: none; }
+  .panel { width: min(92vw, 560px); max-height: calc(100dvh - 24px); }
 }

@@ -359,37 +359,111 @@ function summarize(color, steps) {
   return bits.join("，");
 }
 
-function unlockAudio() {
+const clipUrls = new Map();
+
+function audioContext() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
   try {
-    audioCtx = audioCtx || new AudioContext();
-    if (audioCtx.state === "suspended") audioCtx.resume();
+    audioCtx = audioCtx || new AC();
   } catch (err) {
-    /* ignore missing audio */
+    return null;
   }
+  return audioCtx;
+}
+
+function unlockAudio() {
+  const ctx = audioContext();
+  if (!ctx) return;
+  if (ctx.state === "suspended") ctx.resume();
+  try {
+    const buf = ctx.createBuffer(1, 1, ctx.sampleRate || 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+  } catch (err) {
+    /* ignore */
+  }
+}
+
+function wavUrl(freq, seconds, type) {
+  const key = freq + ":" + seconds + ":" + (type || "sine");
+  if (clipUrls.has(key)) return clipUrls.get(key);
+  const rate = 22050;
+  const n = Math.max(1, Math.floor(rate * seconds));
+  const bytes = 44 + n * 2;
+  const raw = new ArrayBuffer(bytes);
+  const view = new DataView(raw);
+  const text = (offset, value) => {
+    for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i));
+  };
+  text(0, "RIFF");
+  view.setUint32(4, bytes - 8, true);
+  text(8, "WAVE");
+  text(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, rate, true);
+  view.setUint32(28, rate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  text(36, "data");
+  view.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) {
+    const t = i / rate;
+    const env = Math.sin(Math.PI * Math.min(1, i / n));
+    let sample = Math.sin(2 * Math.PI * freq * t);
+    if (type === "square") sample = sample >= 0 ? 0.7 : -0.7;
+    const value = Math.max(-1, Math.min(1, sample * env * 0.92));
+    view.setInt16(44 + i * 2, value * 32767, true);
+  }
+  const url = URL.createObjectURL(new Blob([raw], { type: "audio/wav" }));
+  clipUrls.set(key, url);
+  return url;
+}
+
+function playWav(freq, dur, type) {
+  const audio = new Audio(wavUrl(freq, dur, type));
+  audio.volume = 1;
+  const pending = audio.play();
+  if (pending && pending.catch) pending.catch(() => {});
+}
+
+function playBuffer(ctx, freq, dur, type) {
+  const rate = ctx.sampleRate;
+  const length = Math.max(dur, 0.16);
+  const n = Math.floor(rate * length);
+  const buffer = ctx.createBuffer(1, n, rate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < n; i++) {
+    const t = i / rate;
+    const env = Math.sin((Math.PI * i) / n);
+    let sample = Math.sin(2 * Math.PI * freq * t);
+    if (type === "square") sample = sample >= 0 ? 0.8 : -0.8;
+    data[i] = sample * env * 0.9;
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  src.connect(ctx.destination);
+  src.start();
 }
 
 function tone(freq, dur, type) {
   if (!G.sound) return;
+  const length = Math.max(dur, 0.16);
+  const ctx = audioCtx;
+  if (ctx && ctx.state === "running") {
+    try {
+      playBuffer(ctx, freq, length, type);
+      return;
+    } catch (err) {
+      /* fall through to a file */
+    }
+  }
   try {
-    unlockAudio();
-    const ctx = audioCtx;
-    if (!ctx) return;
-    const play = () => {
-      const t0 = ctx.currentTime;
-      const length = Math.max(dur, 0.14);
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = type || "sine";
-      osc.frequency.setValueAtTime(freq, t0);
-      gain.gain.setValueAtTime(0.25, t0);
-      gain.gain.linearRampToValueAtTime(0.0001, t0 + length);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(t0);
-      osc.stop(t0 + length + 0.02);
-    };
-    if (ctx.state === "suspended") ctx.resume().then(play).catch(() => {});
-    else play();
+    playWav(freq, length, type);
   } catch (err) {
     /* ignore missing audio */
   }
@@ -965,12 +1039,13 @@ function boot() {
     startGame();
   });
   document.getElementById("sound-btn").addEventListener("click", () => {
-    G.sound = !G.sound;
     unlockAudio();
+    G.sound = !G.sound;
     paint();
-    if (G.sound) tone(660, 0.16);
+    if (G.sound) tone(880, 0.22);
   });
-  document.addEventListener("pointerdown", unlockAudio, { passive: true });
+  document.addEventListener("click", unlockAudio, true);
+  document.addEventListener("touchend", unlockAudio, true);
   document.getElementById("dice").addEventListener("click", () => {
     if (G.phase === "roll" && G.control[G.turn] === "human") onRoll();
   });
