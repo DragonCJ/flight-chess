@@ -11,7 +11,7 @@ const META = {
 
 const MOD_COLOR = ["green", "yellow", "blue", "red"];
 const GOAL = 57;
-const PLANE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 12 2a1.5 1.5 0 0 0-1.5 1.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>';
+const PLANE_SVG = '<svg viewBox="-0.27 1 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 12 2a1.5 1.5 0 0 0-1.5 1.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>';
 
 function rot90(c, r) {
   return [14 - r, c];
@@ -565,10 +565,13 @@ function paint() {
     }
     const vis = visualOf(plane, stackIndex, stackCount);
     const dur = plane.swoop ? "360ms" : "0ms";
+    const half = plane.rel == null ? 0.28 : 0.36;
     el.style.transition = "left " + dur + " ease, top " + dur + " ease";
     el.style.left = (vis.x / 15) * 100 + "%";
     el.style.top = (vis.y / 15) * 100 + "%";
-    el.style.transform = "translate(-50%, -50%) rotate(" + vis.rot + "deg)";
+    el.style.marginLeft = "calc(-100% / 15 * " + half + ")";
+    el.style.marginTop = "calc(-100% / 15 * " + half + ")";
+    el.style.transform = "rotate(" + vis.rot + "deg)";
     el.classList.toggle("legal", legal.has(plane.id));
     el.classList.toggle("in-base", plane.rel == null);
     el.classList.toggle("done", plane.done);
@@ -641,6 +644,7 @@ function buildBoard() {
 
   const hub = document.createElement("div");
   hub.className = "hub";
+  hub.insertAdjacentHTML("beforeend", PLANE_SVG);
   grid.appendChild(hub);
   grid.appendChild(buildFlySvg());
 }

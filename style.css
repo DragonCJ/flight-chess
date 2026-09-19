@@ -170,16 +170,24 @@ button, summary { font-family: inherit; }
 }
 
 .hub::after {
-  content: "✈";
+  content: "";
   position: absolute;
   inset: 24%;
   border-radius: 50%;
   background: #fff;
-  display: grid;
-  place-items: center;
-  font-size: 2.4cqi;
-  color: #334155;
 }
+
+.hub svg {
+  position: absolute;
+  z-index: 1;
+  left: 34%;
+  top: 34%;
+  width: 32%;
+  height: 32%;
+  pointer-events: none;
+}
+
+.hub svg path { fill: #334155; stroke: none; }
 
 .flys {
   position: absolute;
@@ -200,6 +208,10 @@ button, summary { font-family: inherit; }
   border: 0;
   background: transparent;
   color: var(--ink);
+  appearance: none;
+  -webkit-appearance: none;
+  line-height: 0;
+  font-size: 0;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
   pointer-events: none;
   transform-origin: center center;
@@ -210,7 +222,16 @@ button, summary { font-family: inherit; }
 .plane.c-yellow { color: #c48800; }
 .plane.c-blue { color: var(--blue); }
 
-.plane svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.plane svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+  pointer-events: none;
+}
 .plane svg path {
   fill: currentColor;
   stroke: #fff;
@@ -221,9 +242,6 @@ button, summary { font-family: inherit; }
 .plane.in-base {
   width: calc(100% / 15 * 0.56);
   height: calc(100% / 15 * 0.56);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border-radius: 50%;
   background: currentColor;
   box-shadow: 0 0 0 2px #fff, 0 2px 5px rgba(0, 0, 0, 0.28);
@@ -236,9 +254,10 @@ button, summary { font-family: inherit; }
 .plane.in-base.c-blue { color: #2f6bff; }
 
 .plane.in-base svg {
-  position: static;
-  width: 70%;
-  height: 70%;
+  left: 16%;
+  top: 16%;
+  width: 68%;
+  height: 68%;
 }
 
 .plane.in-base svg path {
