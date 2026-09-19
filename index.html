@@ -23,9 +23,12 @@
       <p id="hint" class="hint" aria-live="polite">准备开始</p>
       <p id="sixes" class="sixes"></p>
 
-      <button id="dice" class="dice" type="button" disabled aria-label="掷骰子">
-        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-      </button>
+      <div class="dice-row">
+        <button id="dice" class="dice" type="button" disabled aria-label="掷骰子">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </button>
+        <p id="dice-num" class="dice-num" aria-hidden="true">1</p>
+      </div>
       <p class="dice-tip">空格键也可以掷骰</p>
 
       <div id="players" class="players"></div>

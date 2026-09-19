@@ -458,6 +458,8 @@ function showDice(n) {
   const pips = document.querySelectorAll("#dice i");
   pips.forEach((pip, i) => pip.classList.toggle("on", on.has(i)));
   const dice = document.getElementById("dice");
+  const num = document.getElementById("dice-num");
+  if (num) num.textContent = n ? String(n) : "";
   if (dice) dice.setAttribute("aria-label", n ? n + "点" : "掷骰子");
 }
 

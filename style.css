@@ -302,31 +302,68 @@ button, summary { font-family: inherit; }
   font-size: 13px;
 }
 
+.dice-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin: 8px 0 2px;
+}
+
 .dice {
-  width: 96px;
-  height: 96px;
-  margin: 6px auto;
-  padding: 14px;
+  width: 120px;
+  height: 120px;
+  flex: 0 0 auto;
+  padding: 16px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 7px;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 6px;
   border: 0;
-  border-radius: 18px;
+  border-radius: 20px;
   background: #fff;
   box-shadow: 0 7px 0 var(--edge, #e4d3a8), 0 12px 24px rgba(0, 0, 0, 0.08);
   cursor: pointer;
 }
 
-.dice:disabled { cursor: default; opacity: 0.72; }
+.dice:disabled { cursor: default; }
 .dice:not(:disabled):hover { transform: translateY(-1px); }
 .dice.rolling { animation: wobble 0.12s linear infinite; }
 
 .dice i {
+  display: block;
+  width: 82%;
+  height: 82%;
+  margin: auto;
   border-radius: 50%;
   background: transparent;
 }
 
-.dice i.on { background: #1c2430; }
+.dice i.on { background: #111; }
+
+.dice-num {
+  margin: 0;
+  min-width: 1.1em;
+  font-size: 72px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  text-align: center;
+  color: #1c2430;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (pointer: coarse) {
+  .dice {
+    width: 156px;
+    height: 156px;
+    padding: 18px;
+    gap: 8px;
+  }
+
+  .dice i { width: 88%; height: 88%; }
+  .dice-num { font-size: 96px; }
+}
 
 .dice-tip {
   margin: 0;
