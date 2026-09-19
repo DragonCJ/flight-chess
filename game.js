@@ -1049,6 +1049,76 @@ function playerName() {
   return (typed || deviceKind()).slice(0, 8);
 }
 
+function saveHostMark() {
+  try {
+    localStorage.setItem("fc-host", JSON.stringify({
+      room: Net.room,
+      count: G.count,
+      at: Date.now(),
+    }));
+  } catch (err) { /* ignore */ }
+}
+
+function readHostMark() {
+  try {
+    const data = JSON.parse(localStorage.getItem("fc-host") || "null");
+    if (!data || !data.room) return null;
+    if (Date.now() - data.at > 12 * 60 * 60 * 1000) return null;
+    return data;
+  } catch (err) {
+    return null;
+  }
+}
+
+function clearHostMark() {
+  try {
+    localStorage.removeItem("fc-host");
+    localStorage.removeItem("fc-host-snap");
+  } catch (err) { /* ignore */ }
+}
+
+function saveHostSnap() {
+  if (Net.role !== "host") return;
+  try {
+    localStorage.setItem("fc-host-snap", JSON.stringify({
+      room: Net.room,
+      phase: G.phase,
+      count: G.count,
+      control: G.control,
+      active: G.active,
+      turn: G.turn,
+      dice: G.dice,
+      sixes: G.sixes,
+      moves: G.moves,
+      log: G.log.slice(0, 14),
+      winner: G.winner,
+      planes: G.planes.map((p) => ({ id: p.id, color: p.color, slot: p.slot, rel: p.rel, done: !!p.done })),
+    }));
+  } catch (err) { /* ignore */ }
+}
+
+function restoreHostSnap(room) {
+  let data = null;
+  try { data = JSON.parse(localStorage.getItem("fc-host-snap") || "null"); } catch (err) { return; }
+  if (!data || data.room !== room || !data.phase || data.phase === "setup") return;
+  G.phase = data.phase;
+  G.count = data.count;
+  G.control = Object.assign({}, data.control);
+  G.active = data.active.slice();
+  G.turn = data.turn;
+  G.dice = data.dice;
+  G.sixes = data.sixes || 0;
+  G.moves = data.moves || [];
+  G.log = data.log || [];
+  G.winner = data.winner || null;
+  G.planes = (data.planes || []).map((p) => ({ id: p.id, color: p.color, slot: p.slot, rel: p.rel, done: !!p.done, swoop: false }));
+  Net.planeKey = G.planes.map((p) => p.id).join(",");
+  mountPlanes();
+  document.getElementById("setup-modal").hidden = true;
+  if (G.dice) showDice(G.dice);
+  paint();
+}
+
 function rememberName() {
   try { localStorage.setItem("fc-name", playerName()); } catch (err) { /* ignore */ }
 }
@@ -1086,6 +1156,8 @@ function setNetStatus(text) {
   const start = document.getElementById("start-btn");
   const code = document.getElementById("room-code");
   if (copy) copy.hidden = Net.role !== "host";
+  const leave = document.getElementById("leave-room");
+  if (leave) leave.hidden = Net.role === "local";
   if (code) {
     code.hidden = Net.role !== "host" || !Net.room;
     code.textContent = Net.room || "";
@@ -1109,6 +1181,7 @@ function netSend(msg) {
 
 function netSnap() {
   if (Net.role !== "host" || Net.applying) return;
+  saveHostSnap();
   netSend({
     t: "snap",
     phase: G.phase,
@@ -1258,7 +1331,7 @@ function connectNet(room, role) {
                 return;
               }
               if (Net.role === "host") netSnap();
-              if (Net.role === "guest" && !Net.seat) netSend({ t: "join", name: playerName() });
+              if (Net.role === "guest") netSend({ t: "join", name: playerName() });
             }, 1500);
             resolve();
           } else if (Net.role === "guest") {
@@ -1300,7 +1373,45 @@ async function hostRoom() {
   Net.members.set(Net.id, { name: playerName(), color: "red" });
   for (const color of activeOf(G.count)) G.control[color] = "human";
   document.getElementById("room-input").value = room;
-  setNetStatus("房间 " + room + " 已创建。复制链接发到微信，等人齐了再开始。");
+  saveHostMark();
+  setNetStatus("房间 " + room + " 已创建。复制链接发到微信，切回来你仍然是房主。");
+}
+
+async function resumeHost(mark) {
+  G.count = mark.count || G.count;
+  renderSetup();
+  document.getElementById("room-input").value = mark.room;
+  setNetStatus("正在回到房间 " + mark.room + " …");
+  try {
+    await connectNet(mark.room, "host");
+  } catch (err) {
+    Net.role = "local";
+    setNetStatus("回到房间失败，请重新创建。");
+    return;
+  }
+  Net.seat = "red";
+  Net.members = new Map();
+  Net.members.set(Net.id, { name: playerName(), color: "red" });
+  for (const color of activeOf(G.count)) G.control[color] = "human";
+  restoreHostSnap(mark.room);
+  saveHostMark();
+  setNetStatus("你还是房主。房间 " + mark.room + "。");
+  netSnap();
+}
+
+function leaveRoom() {
+  clearHostMark();
+  if (Net.timer) clearInterval(Net.timer);
+  if (Net.client) {
+    try { Net.client.end(true); } catch (err) { /* ignore */ }
+  }
+  Net.role = "local";
+  Net.room = "";
+  Net.seat = null;
+  Net.client = null;
+  Net.members = new Map();
+  document.getElementById("room-input").value = "";
+  setNetStatus("已退出房间。");
 }
 
 async function joinRoom(code) {
@@ -1309,6 +1420,12 @@ async function joinRoom(code) {
     setNetStatus("房间号是 4 位字母或数字。");
     return;
   }
+  const owned = readHostMark();
+  if (owned && owned.room === room) {
+    resumeHost(owned);
+    return;
+  }
+  clearHostMark();
   setNetStatus("正在加入 " + room + " …");
   try {
     await connectNet(room, "guest");
@@ -1382,6 +1499,7 @@ function boot() {
     joinRoom(document.getElementById("room-input").value);
   });
   document.getElementById("copy-room").addEventListener("click", copyRoomLink);
+  document.getElementById("leave-room").addEventListener("click", leaveRoom);
   document.querySelectorAll("#counts button").forEach((btn) => {
     btn.addEventListener("click", () => {
       if (Net.role !== "local") return;
@@ -1406,9 +1524,13 @@ function boot() {
     nameInput.value = deviceKind();
   }
   nameInput.addEventListener("change", rememberName);
-  const preset = new URLSearchParams(location.search).get("room");
-  if (preset) {
-    document.getElementById("room-input").value = preset.toUpperCase();
+  const preset = (new URLSearchParams(location.search).get("room") || "").toUpperCase();
+  const owned = readHostMark();
+  if (owned && (!preset || preset === owned.room)) {
+    document.getElementById("room-input").value = owned.room;
+    resumeHost(owned);
+  } else if (preset) {
+    document.getElementById("room-input").value = preset;
     joinRoom(preset);
   }
 }
