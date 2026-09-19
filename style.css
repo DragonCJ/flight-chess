@@ -131,7 +131,7 @@ button, summary { font-family: inherit; }
   content: "";
   position: absolute;
   inset: 28%;
-  background: rgba(20, 24, 32, 0.78);
+  background: rgba(255, 255, 255, 0.88);
   clip-path: polygon(0 32%, 58% 32%, 58% 0, 100% 50%, 58% 100%, 58% 68%, 0 68%);
 }
 
@@ -194,7 +194,7 @@ button, summary { font-family: inherit; }
   position: absolute;
   z-index: 6;
   width: calc(100% / 15 * 0.72);
-  aspect-ratio: 1;
+  height: calc(100% / 15 * 0.72);
   margin: 0;
   padding: 0;
   border: 0;
@@ -202,6 +202,7 @@ button, summary { font-family: inherit; }
   color: var(--ink);
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
   pointer-events: none;
+  transform-origin: center center;
 }
 
 .plane.c-red { color: var(--red); }
@@ -218,10 +219,14 @@ button, summary { font-family: inherit; }
 }
 
 .plane.in-base {
-  width: calc(100% / 15 * 0.92);
+  width: calc(100% / 15 * 0.56);
+  height: calc(100% / 15 * 0.56);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 0 3px #fff, 0 2px 5px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 0 0 2px #fff, 0 2px 5px rgba(0, 0, 0, 0.28);
   filter: none;
 }
 
@@ -231,14 +236,13 @@ button, summary { font-family: inherit; }
 .plane.in-base.c-blue { color: #2f6bff; }
 
 .plane.in-base svg {
-  position: absolute;
-  inset: 16%;
-  width: auto;
-  height: auto;
+  position: static;
+  width: 70%;
+  height: 70%;
 }
 
 .plane.in-base svg path {
-  fill: #1c2430;
+  fill: #fff;
   stroke: none;
 }
 
