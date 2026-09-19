@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>飞行棋</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <div class="stage">
+      <div class="board" id="board">
+        <div class="grid" id="grid"></div>
+      </div>
+    </div>
+
+    <aside class="panel">
+      <header class="brand">
+        <p class="eyebrow">经典棋盘</p>
+        <h1>飞行棋</h1>
+      </header>
+
+      <p id="hint" class="hint" aria-live="polite">准备开始</p>
+      <p id="sixes" class="sixes"></p>
+
+      <button id="dice" class="dice" type="button" disabled aria-label="掷骰子">
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      </button>
+      <p class="dice-tip">空格键也可以掷骰</p>
+
+      <div id="players" class="players"></div>
+      <ol id="log" class="log"></ol>
+
+      <details class="rules">
+        <summary>规则</summary>
+        <ol>
+          <li>掷出 6 点才能从机场起飞，并且可以再掷一次。</li>
+          <li>走子后停在自己颜色的格子上，向前跳 4 格。起飞落到起飞点不算跳跃。</li>
+          <li>掷骰正好停在自己的航线格（虚线起点），沿虚线飞到前方，再跳 4 格。如果是跳到航线格，只飞、不再跳。</li>
+          <li>落点上的敌机，以及航线飞过的敌机，都会被击落回机场。四个起飞点是安全区。</li>
+          <li>绕场一圈后进入自己颜色的终点道。必须刚好到达，多出的步数会反弹。</li>
+          <li>连续掷出三个 6，场上最靠前的飞机立刻返航，本回合结束。</li>
+          <li>谁先把 4 架飞机全部送到终点，谁就获胜。到达后飞机会翻扣在机场里。</li>
+        </ol>
+      </details>
+
+      <div class="row-btns">
+        <button id="sound-btn" class="ghost" type="button">音效开</button>
+        <button id="reset-btn" class="ghost" type="button">重开本局</button>
+        <button id="setup-btn" class="ghost" type="button">设置</button>
+      </div>
+    </aside>
+  </div>
+
+  <div class="modal" id="setup-modal">
+    <div class="card">
+      <p class="eyebrow">同屏或对电脑</p>
+      <h2>开始一局飞行棋</h2>
+      <p class="lead">每人 4 架飞机。红方先走。两人局是红方对黄方，坐在对角。</p>
+      <div class="seg" id="counts">
+        <button type="button" data-count="2">两人</button>
+        <button type="button" data-count="3">三人</button>
+        <button type="button" data-count="4">四人</button>
+      </div>
+      <div id="seats" class="seats"></div>
+      <button id="start-btn" class="primary" type="button">开始游戏</button>
+    </div>
+  </div>
+
+  <div class="modal" id="win-modal" hidden>
+    <div class="card win-card">
+      <p class="eyebrow">全部抵达</p>
+      <h2 id="win-title">红方获胜</h2>
+      <p class="lead">四架飞机都完成了飞行。</p>
+      <div class="row-btns center">
+        <button id="again-btn" class="primary" type="button">再来一局</button>
+        <button id="back-btn" class="ghost" type="button">返回设置</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
